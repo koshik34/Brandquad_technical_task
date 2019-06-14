@@ -4,13 +4,21 @@
       <tr>
         <th v-for="field in fields" @click="sort_table(field)">{{field}}</th>
       </tr>
-      <tr v-for="(item,i) in list">
-        <td v-for="field in fields" v-if="i>=selected_page*10-10&&i<selected_page*10">{{list[i][field]||field}}</td>
+      <tr v-for="(item,i) in list" v-if="i>=selected_page*10-10&&i<selected_page*10">
+        <td v-for="field in fields" >{{list[i][field]||field}}</td>
       </tr>
     </table>
     <div class="row">
+      <div class='button' @click='show_modal_window=!show_modal_window'>Show JSON</div>
+      <div class=''> {{show_modal_window}}</div>
       <div v-if="numbers_page>1" class='numbers_page'>
         <div class="number"  v-for="number in numbers_page" @click="selected_page=number" v-bind:class="{active:number==selected_page}">{{number}}</div>
+      </div>
+    </div>
+    <div class='wrap_modal_window' v-if="show_modal_window">
+      <div class='modal_window'>
+        <div class='block_json'>{{JSON.stringify(list)}}</div>
+        <div class='button'>Copy</div>
       </div>
     </div>
   </div>
@@ -29,7 +37,8 @@ export default {
     return {
       list:[],
       numbers_page:null,
-      selected_page:1
+      selected_page:1,
+      show_modal_window:false
     };
   },
   methods:{
@@ -105,5 +114,56 @@ export default {
 .number.active
 {
   background-color: aqua;
+}
+.wrap_modal_window
+{
+  position: fixed;
+  width: 100%;
+  text-align: center;
+  height: auto;
+  top: 0px;
+  bottom: 0px;
+  left: 0px;
+  right: 0px;
+  box-sizing: border-box;
+  z-index: 100;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  align-items: center;
+}
+.modal_window
+{
+  width: 360px;
+  border: 1px solid #bcbcbc;
+  background-color: white;
+}
+.button
+{
+  border: 1px solid #bcbcbc;
+  background-color: white;
+  padding: 2px 10px;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: bold;
+  border-radius: 6px;
+  transition: all 0.5s ease;
+  box-sizing: border-box;
+  align-items: center;
+  color: #757575;
+  display:flex;
+  width:auto;
+  align-items: center;
+  justify-content: space-around;
+}
+.block_json
+{
+  padding: 15px;
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    text-align: left;
+    width: 100%;
+    box-sizing: border-box;
 }
 </style>
