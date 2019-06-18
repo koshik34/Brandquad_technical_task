@@ -2,22 +2,22 @@
   <div>
     <table class="tftable" border="1">
       <tr>
-        <th v-for="field in fields" @click="sort_table(field)">{{field}}</th>
+        <th v-for="field in fields" v-bind:key="field.id" @click="sort_table(field)">{{field}}</th>
       </tr>
-      <tr v-for="(item,i) in list" v-if="i>=selected_page*10-10&&i<selected_page*10">
-        <td v-for="field in fields" >{{list[i][field]||field}}</td>
+      <tr v-for="(item,i) in list" v-bind:key="item.id" v-if="showRow(i)">
+        <td v-for="field in fields" v-bind:key="field.id">{{list[i][field]||field}}</td>
       </tr>
     </table>
     <div class="row">
       <div class='button' @click='show_modal_window=!show_modal_window'>Show JSON</div>
       <div class=''> {{show_modal_window}}</div>
       <div v-if="numbers_page>1" class='numbers_page'>
-        <div class="number"  v-for="number in numbers_page" @click="selected_page=number" v-bind:class="{active:number==selected_page}">{{number}}</div>
+        <div class="number"  v-for="number in numbers_page" v-bind:key="number.id" @click="selected_page=number" v-bind:class="{active:number===selected_page}">{{number}}</div>
       </div>
     </div>
-    <div class='wrap_modal_window' v-if="show_modal_window">
+    <div class='wrap_modal_window' v-if="show_modal_window" @click="show_modal_window=!show_modal_window">
       <div class='modal_window'>
-        <div class='block_json'>{{JSON.stringify(list)}}</div>
+        <div class='block_json'>{{list}</div>
         <div class='button'>Copy</div>
       </div>
     </div>
@@ -44,6 +44,9 @@ export default {
   methods:{
     add_row(){
       list.push()
+    },
+    showRow(i){
+      return i>=this.selected_page*10-10&&i<this.selected_page*10
     },
     sort_table(name){
 
@@ -155,6 +158,7 @@ export default {
   width:auto;
   align-items: center;
   justify-content: space-around;
+  display: inline-block;
 }
 .block_json
 {
