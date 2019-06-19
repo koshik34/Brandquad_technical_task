@@ -10,15 +10,14 @@
     </table>
     <div class="row">
       <div class='button' @click='show_modal_window=!show_modal_window'>Show JSON</div>
-      <div class=''> {{show_modal_window}}</div>
       <div v-if="numbers_page>1" class='numbers_page'>
         <div class="number"  v-for="number in numbers_page" v-bind:key="number.id" @click="selected_page=number" v-bind:class="{active:number===selected_page}">{{number}}</div>
       </div>
     </div>
     <div class='wrap_modal_window' v-if="show_modal_window" @click="show_modal_window=!show_modal_window">
-      <div class='modal_window'>
-        <div class='block_json'>{{list}</div>
-        <div class='button'>Copy</div>
+      <div class='modal_window' id='modal_window'>
+        <div class='block_json'>{{list}}</div>
+        <div class='button' @click="copy_json">Copy</div>
       </div>
     </div>
   </div>
@@ -29,19 +28,38 @@ import axios from "axios";
 import lodash from "lodash";
 export default {
   props: {
-    fields: Array,
-    rows: Number,
-    meta: Array
+    fields:{type:Array,default:[]},
+    rows:{type:Number,default:0} ,
+    meta: {type:Array,default:[]},
   },
   data() {
     return {
       list:[],
       numbers_page:null,
+      numbers_rows:null,
       selected_page:1,
       show_modal_window:false
     };
   },
   methods:{
+    copy_json(element){
+      var parent=document.getElementById('modal_window');
+      var text=JSON.stringify(this.list);
+      var textArea=document.createElement("textarea");
+      textArea.value=text;
+      parent.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      try {
+        var successful=document.execCommand('copy');
+        var msg=successful ? 'successful' : 'unsuccessful';
+        console.log('Fallback: Copying text command was ' + msg);
+      } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err);
+      }
+      parent.removeChild(textArea);
+    },
     add_row(){
       list.push()
     },
@@ -56,13 +74,14 @@ export default {
     }
   },
   mounted() {
-    if(this.fields.length===0||!this.rows||this.meta.length===0)
+    console.log(this.fields);
+    if(this.fields.length===0||!this.rows===0||!this.meta.length===0)
     {
       // http://www.filltext.com/?rows=1000&id={number|1000}&firstName={firstName}&delay=3&lastName={lastName}&email={email}&phone={phone|(xxx)xxx-xx-xx}&adress={addressObject}&description={lorem|32} 
       axios.get('http://www.filltext.com/?rows=32&id={number|1000}&firstName={firstName}&lastName={lastName}&email={email}&phone={phone|(xxx)xxx-xx-xx}&adress={addressObject}&description={lorem|32}').then(response => {
        
         this.list=response.data;
-        this.rows=this.list.length;
+        this.numbers_rows=this.list.length;
         console.log(this.list);
         this.numbers_page=Math.floor(this.list.length/10);
         var obj=response.data[0];
