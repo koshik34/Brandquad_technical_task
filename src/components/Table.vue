@@ -1,192 +1,213 @@
 <template>
-  <div>
-    <table class="tftable" border="1">
-      <tr>
-        <th v-for="field in fields" v-bind:key="field.id" @click="sort_table(field)">{{field}}</th>
-      </tr>
-      <tr v-for="(item,i) in list" v-bind:key="item.id" v-if="showRow(i)">
-        <td v-for="field in fields" v-bind:key="field.id">{{list[i][field]||field}}</td>
-      </tr>
-    </table>
-    <div class="row">
-      <div class='button' @click='show_modal_window=!show_modal_window'>Show JSON</div>
-      <div v-if="numbers_page>1" class='numbers_page'>
-        <div class="number"  v-for="number in numbers_page" v-bind:key="number.id" @click="selected_page=number" v-bind:class="{active:number===selected_page}">{{number}}</div>
-      </div>
-    </div>
-    <div class='wrap_modal_window' v-if="show_modal_window" @click="show_modal_window=!show_modal_window">
-      <div class='modal_window' id='modal_window'>
-        <div class='block_json'>{{list}}</div>
-        <div class='button' @click="copy_json">Copy</div>
-      </div>
-    </div>
-  </div>
+	<div>
+		<input class='search' v-model='str_search' placeholder='Search' @keyup='find_something' @focus='focus_search'>	
+		<table class="tftable" border="1">
+			<tr>
+				<th v-for="(field,i) in fields" :class="meta[0]" :key="i" @click="sort_table(field)">{{field}}</th>
+			</tr>
+			<tr v-for="(item,i) in clone_list" :key="i" :class="i%2===0?meta[2]:meta[1]" v-if="show_row(i)">
+				<td v-for="(field,index) in fields"  :key="index" @dblclick="show_change_field_input">{{getObjectValueByPath(clone_list[i], field)}}
+					<input class='none new_td'  @keyup="keyup_new_td(clone_list[i], field)" @blur="on_blur_input_new_td(clone_list[i], field)">
+				</td>
+			</tr>
+		</table>
+		<div class="row wrap">
+			<div class='button' @click='show_modal_window=!show_modal_window'>Show JSON</div>
+			<div v-if="!is_search">
+				<input type="number" v-model="select_row_paste">
+				<div class='button' @click='add_row(select_row_paste)'>Add row</div>
+			</div>
+			<div class='button' @click='reset_table()'>Reset</div>
+			<div class='button' @click='remove_table()'>Remove</div>
+			
+			<div v-if="numbers_page>1" class='numbers_page'>
+				<div class="number"  v-for="number in numbers_page" :key="number.id" @click="selected_page=number" :class="{active:number===selected_page}">{{number}}</div>
+			</div>
+		</div>
+		<div class='wrap_modal_window' v-if="show_modal_window" @click="show_modal_window=!show_modal_window">
+			<div class='modal_window' id='modal_window'>
+				<div class='block_json'>{{clone_list}}</div>
+				<div class='button' @click="copy_json">Copy</div>
+			</div>
+		</div>
+	</div>
 </template>
 
 <script>
 import axios from "axios";
 import lodash from "lodash";
 export default {
-  props: {
-    fields:{type:Array,default:[]},
-    rows:{type:Number,default:0} ,
-    meta: {type:Array,default:[]},
-  },
-  data() {
-    return {
-      list:[],
-      numbers_page:null,
-      numbers_rows:null,
-      selected_page:1,
-      show_modal_window:false
-    };
-  },
-  methods:{
-    copy_json(element){
-      var parent=document.getElementById('modal_window');
-      var text=JSON.stringify(this.list);
-      var textArea=document.createElement("textarea");
-      textArea.value=text;
-      parent.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-
-      try {
-        var successful=document.execCommand('copy');
-        var msg=successful ? 'successful' : 'unsuccessful';
-        console.log('Fallback: Copying text command was ' + msg);
-      } catch (err) {
-        console.error('Fallback: Oops, unable to copy', err);
-      }
-      parent.removeChild(textArea);
-    },
-    add_row(){
-      list.push()
-    },
-    showRow(i){
-      return i>=this.selected_page*10-10&&i<this.selected_page*10
-    },
-    sort_table(name){
-
-    },
-    set_page(number){
-      this.selected_page=number;
-    }
-  },
-  mounted() {
-    console.log(this.fields);
-    if(this.fields.length===0||!this.rows===0||!this.meta.length===0)
-    {
-      // http://www.filltext.com/?rows=1000&id={number|1000}&firstName={firstName}&delay=3&lastName={lastName}&email={email}&phone={phone|(xxx)xxx-xx-xx}&adress={addressObject}&description={lorem|32} 
-      axios.get('http://www.filltext.com/?rows=32&id={number|1000}&firstName={firstName}&lastName={lastName}&email={email}&phone={phone|(xxx)xxx-xx-xx}&adress={addressObject}&description={lorem|32}').then(response => {
-       
-        this.list=response.data;
-        this.numbers_rows=this.list.length;
-        console.log(this.list);
-        this.numbers_page=Math.floor(this.list.length/10);
-        var obj=response.data[0];
-        for(var key in obj) {
-          if (lodash.isObject(obj[key])){
-            for (var innerKey in obj[key]){
-              this.fields.push(key+'.'+innerKey);
+	props: {
+		fields:{type:Array,default:[]},
+		rows:{type:Number,default:0} ,
+		meta: {type:Array,default:[]},
+		list:{type:Array,default: () => []},
+		index_table:{type:Number,default:0} 
+	},
+	data() {
+		return {
+			selected_page:1,
+			is_ask:true,
+			show_modal_window:false,
+			select_row_paste:null,
+			new_json:'',
+			str_search:'',
+			is_esc:false,
+			clone_list:this.list,
+			clone_for_search:[],
+			name_sort_fields:{},
+			is_search:false
+		};
+	},
+	computed: {
+		numbers_page:function()
+		{
+			return Math.floor(this.clone_list.length/10);
+		},
+		numbers_rows:function()
+		{
+			return this.clone_list.length;
+		}
+	},
+	methods:{
+		show_change_field_input(event)
+		{
+			var td=event.target;
+			var input=td.children[0];
+			if(input)
+			{
+				input.classList.remove('none');
+				input.focus();
+			}
+		},
+		keyup_new_td(object,path)
+		{
+			this.is_esc=false;
+			var input=event.target;
+			if(event.keyCode===13||event.keyCode===27)
+			{
+				if(event.keyCode===13)
+					this.setObjectValueByPath(object,path,event.target.value);
+				input.classList.add('none');
+				if(event.keyCode===27)
+				{
+					this.is_esc=true;
+				}
+			}		
+		},
+		on_blur_input_new_td(object,path)
+		{
+			var input=event.target;
+			if(!this.is_esc)
+				this.setObjectValueByPath(object,path,event.target.value);
+			event.target.classList.add('none');
+		},
+		focus_search(event)
+		{
+			if(event.target.value==='')
+				this.clone_for_search=this.clone_list;
+		},
+		find_something(event)
+		{
+			if(event.keyCode===32)
+				return;
+			var ar=lodash.filter(this.clone_for_search, item=>{
+				return lodash.some(this.fields,  el=>{
+					return this.getObjectValueByPath(item, el).toString().indexOf(event.target.value)>=0
+				});
+			});
+			if(event.target.value==='')
+			{
+				this.is_search=false;
+				this.clone_list=this.clone_for_search;
+			}
+			else
+			{
+				this.is_search=true;
+				this.clone_list=ar;
+			}	
+		},
+		getObjectValueByPath(object, path)
+		{
+			return lodash.get(object, path);
+		},
+		setObjectValueByPath(object, path,value)
+		{
+			return lodash.set(object, path,value);
+		},
+		remove_table()
+		{
+			this.$emit('remove_table',this.index_table);
+		},
+		reset_table()
+		{
+			for(var key in this.clone_list) 
+			{
+				if (lodash.isObject(this.clone_list[key]))
+				{
+					for (var innerKey in this.clone_list[key])
+					{
+                        this.clone_list[key][innerKey]=''
+                    }
+                }
+                else
+                    this.clone_list[key]=''
             }
-          }
-          else
-           this.fields.push(key);
-        }
-      });
-    }
-  },
+		},
+		copy_json(element)
+		{
+			var parent=document.getElementById('modal_window');
+			var text=JSON.stringify(this.clone_list);
+			var textArea=document.createElement("textarea");
+			textArea.value=text;
+			parent.appendChild(textArea);
+			textArea.focus();
+			textArea.select();
+
+			try {
+				var successful=document.execCommand('copy');
+				var msg=successful ? 'successful' : 'unsuccessful';
+				console.log('Fallback: Copying text command was ' + msg);
+			} catch (err) {
+				console.error('Fallback: Oops, unable to copy', err);
+			}
+			parent.removeChild(textArea);
+		},
+		add_row(index)
+		{
+			if(!index||index===''||index<0||index>this.numbers_rows)
+				index=this.numbers_rows*1;
+			var obj={};
+			this.fields.forEach(field=>{
+				this.setObjectValueByPath(obj,field,'');
+			});
+			this.clone_list.splice(index, 0, obj);
+		},
+		show_row(i)
+		{
+			return i>=this.selected_page*10-10&&i<this.selected_page*10
+		},
+		sort_table(name)
+		{
+			if(!(name in this.name_sort_fields))
+				this.name_sort_fields[name]='asc';
+			else{
+				if(this.name_sort_fields[name]==='asc')
+					this.name_sort_fields[name]='desc';
+				else
+					this.name_sort_fields[name]='asc';
+			}
+			this.clone_list=lodash.orderBy(this.clone_list,[name],this.name_sort_fields[name]);
+		},
+		set_page(number)
+		{
+			this.selected_page=number;
+		}
+	}
+ 
 };
 </script>
 
 <style>
-.row
-{
-  margin-top:2em;
-  width:100%;
-  display:flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.tftable {
-  border-width: 1px;
-  border-color: black;
-  border-collapse: collapse;
-}
-.tftable th 
-{
-  cursor:pointer;
-}
-.numbers_page
-{
-  display:flex;
-}
-.number
-{
-  width: 1.5em;
-  height:1.5em;
-  display:flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  border:1px solid black;
-  cursor:pointer;
-}
-.number.active
-{
-  background-color: aqua;
-}
-.wrap_modal_window
-{
-  position: fixed;
-  width: 100%;
-  text-align: center;
-  height: auto;
-  top: 0px;
-  bottom: 0px;
-  left: 0px;
-  right: 0px;
-  box-sizing: border-box;
-  z-index: 100;
-  display: flex;
-  flex-direction: row;
-  justify-content: space-around;
-  align-items: center;
-}
-.modal_window
-{
-  width: 360px;
-  border: 1px solid #bcbcbc;
-  background-color: white;
-}
-.button
-{
-  border: 1px solid #bcbcbc;
-  background-color: white;
-  padding: 2px 10px;
-  cursor: pointer;
-  text-decoration: none;
-  font-weight: bold;
-  border-radius: 6px;
-  transition: all 0.5s ease;
-  box-sizing: border-box;
-  align-items: center;
-  color: #757575;
-  display:flex;
-  width:auto;
-  align-items: center;
-  justify-content: space-around;
-  display: inline-block;
-}
-.block_json
-{
-  padding: 15px;
-    max-height: 300px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    text-align: left;
-    width: 100%;
-    box-sizing: border-box;
-}
+
 </style>
